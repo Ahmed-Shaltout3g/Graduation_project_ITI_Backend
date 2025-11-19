@@ -7,8 +7,20 @@ class CategorySerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class ProductSerializer(serializers.ModelSerializer):
-    seller = serializers.ReadOnlyField(source='sellxer.id')
+    seller = serializers.SerializerMethodField()
+    category_name = serializers.CharField(source='category.name', read_only=True)
+
     class Meta:
         model = Product
         fields = '__all__'
         read_only_fields = ('seller','created_at','updated_at')
+
+    def get_seller(self, obj):
+        if obj.seller:
+            return {
+                "id": obj.seller.id,
+                "email": obj.seller.email,
+                "first_name": obj.seller.first_name,
+                "phone": getattr(obj.seller, "phone", None)
+            }
+        return None
