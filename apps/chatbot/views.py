@@ -9,8 +9,10 @@ from .serializers import ChatbotSerializer
 import requests
 import os
 import json
+from dotenv import load_dotenv
 
-OPENAI_API_KEY = "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"
+load_dotenv()
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 @method_decorator(csrf_exempt, name="dispatch")
 class ChatbotAPIView(APIView):
