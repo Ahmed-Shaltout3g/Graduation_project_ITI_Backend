@@ -40,4 +40,23 @@ class ProductViewSet(viewsets.ModelViewSet):
             count = Product.objects.filter(seller=user).count()
             if count >= 2:
                 raise PermissionDenied("Regular users can only add up to 2 products.")
-        serializer.save(seller=user)
+        # Enforce default status for regular users: newly created products by non-staff
+        # must be inactive. Staff users may set status when creating.
+        if not user.is_staff:
+            # newly created products by non-staff go to 'pending' for admin approval
+            serializer.save(seller=user, status='pending')
+        else:
+            serializer.save(seller=user)
+
+    def perform_update(self, serializer):
+        # Prevent non-staff users from changing status to 'active'. Admin/staff can.
+        requested_status = None
+        try:
+            requested_status = self.request.data.get('status')
+        except Exception:
+            requested_status = None
+
+        if requested_status == 'active' and not self.request.user.is_staff:
+            raise PermissionDenied('Only admin/staff can set product status to active.')
+
+        serializer.save()

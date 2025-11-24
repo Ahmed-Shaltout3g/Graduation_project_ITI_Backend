@@ -24,3 +24,10 @@ class ProductSerializer(serializers.ModelSerializer):
                 "phone": getattr(obj.seller, "phone", None)
             }
         return None
+
+    def validate_status(self, value):
+        """Ensure status is one of the allowed STATUS_CHOICES on Product."""
+        allowed = [c[0] for c in Product.STATUS_CHOICES]
+        if value not in allowed:
+            raise serializers.ValidationError(f"status must be one of {allowed}")
+        return value

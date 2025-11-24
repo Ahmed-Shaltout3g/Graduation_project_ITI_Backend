@@ -11,6 +11,11 @@ class Category(models.Model):
 
 class Product(models.Model):
     CONDITION_CHOICES = [('new','New'),('used','Used')]
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('inactive', 'Inactive'),
+        ('pending', 'Pending'),
+    ]
     title = models.CharField(max_length=255)
     description = models.TextField()
     price = models.DecimalField(max_digits=12, decimal_places=2)
@@ -23,7 +28,7 @@ class Product(models.Model):
     university = models.CharField(max_length=255, blank=True)
     faculty = models.CharField(max_length=255, blank=True)
     is_featured = models.BooleanField(default=False)
-    status = models.CharField(max_length=30, default='active')
+    status = models.CharField(max_length=30, choices=STATUS_CHOICES, default='pending')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

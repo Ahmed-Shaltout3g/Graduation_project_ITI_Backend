@@ -1,11 +1,13 @@
 from django.contrib import admin
 from django.urls import path, include
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework_simplejwt.views import TokenRefreshView
+from apps.users.views import CustomTokenObtainPairView
 from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import re_path
 from django.views.static import serve as static_serve
 from django.http import Http404
+from django.shortcuts import redirect
 import os
 from rest_framework import permissions
 from drf_yasg.views import get_schema_view
@@ -26,7 +28,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
 
     # JWT
-    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
     # Apps
@@ -72,9 +74,25 @@ def _media_serve_case_insensitive(request, path):
     found_rel = os.path.join(*matched_parts)
     return static_serve(request, found_rel, document_root=settings.MEDIA_ROOT)
 
+    # unreachable
+
 
 # Serve media in development or when explicitly enabled (useful for testing container-built media)
 if settings.DEBUG or os.environ.get('SERVE_MEDIA', 'False') == 'True':
     urlpatterns += [
         re_path(r'^media/(?P<path>.*)$', _media_serve_case_insensitive),
+    ]
+
+# When a file is not present locally but a GS bucket is configured, redirect to the
+# public GCS URL so Cloud Run can serve media stored in Google Cloud Storage.
+GS_BUCKET = os.environ.get('GS_BUCKET_NAME') or getattr(settings, 'GS_BUCKET_NAME', None)
+if GS_BUCKET:
+    def _media_redirect_fallback(request, path):
+        normalized = os.path.normpath(path).lstrip(os.sep)
+        gcs_url = f'https://storage.googleapis.com/{GS_BUCKET}/{normalized}'
+        return redirect(gcs_url)
+
+    # Add redirect as last-resort fallback
+    urlpatterns += [
+        re_path(r'^media/(?P<path>.*)$', _media_redirect_fallback),
     ]
