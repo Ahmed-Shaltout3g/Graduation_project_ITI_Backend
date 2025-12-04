@@ -2,10 +2,12 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import IsAuthenticated
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from .serializers import ChatbotSerializer
+from apps.products.models import Product
+from apps.products.serializers import ProductSerializer
 import requests
 import os
 import json
@@ -17,7 +19,7 @@ OPENAI_API_KEY = os.getenv('OPENAI_API_KEY') or getattr(settings, 'OPENAI_API_KE
 
 @method_decorator(csrf_exempt, name="dispatch")
 class ChatbotAPIView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         try:
@@ -26,6 +28,25 @@ class ChatbotAPIView(APIView):
                 user_message = serializer.validated_data.get("message")
                 if not user_message:
                     return Response({"error": "Message is empty"}, status=status.HTTP_400_BAD_REQUEST)
+
+                # Check if user is requesting recommendations
+                keywords = ['recommend', 'tool', 'product', 'tools', 'products']
+                if any(keyword in user_message.lower() for keyword in keywords):
+                    user = request.user
+                    if user.university.lower() == 'alexandria' and user.faculty.lower() == 'computer science':
+                        products = Product.objects.filter(
+                            university__iexact='alexandria',
+                            faculty__iexact='computer science',
+                            status='active'
+                        ).select_related('category', 'seller')
+                        if products.exists():
+                            product_serializer = ProductSerializer(products, many=True)
+                            return Response({"recommendations": product_serializer.data}, status=status.HTTP_200_OK)
+                        else:
+                            return Response({"reply": "No tools available from your university and faculty at the moment."}, status=status.HTTP_200_OK)
+                    else:
+                        return Response({"reply": "Recommendations are only available for users from Alexandria University Computer Science faculty."}, status=status.HTTP_200_OK)
+
                 if not OPENAI_API_KEY:
                     return Response({"error": "OpenAI API key not configured on server"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
