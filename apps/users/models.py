@@ -4,6 +4,7 @@ from django.utils import timezone
 
 class User(AbstractUser):
     # ERD fields: name (use first+last), email, password, university, faculty, phone, role, freeAdRemaining, activePackage, packageExpiry, createdAt, updatedAt
+    location = models.CharField(max_length=255, blank=True)
     university = models.CharField(max_length=255, blank=True)
     faculty = models.CharField(max_length=255, blank=True)
     phone = models.CharField(max_length=30, blank=True)
