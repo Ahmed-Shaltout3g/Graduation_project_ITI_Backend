@@ -23,21 +23,6 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         data = super().validate(attrs)
         # Include role in the response payload for convenience (admin/user)
         data['role'] = 'admin' if (self.user.is_superuser or self.user.is_staff) else 'user'
-        # Include user data
-        data['user'] = {
-            'id': self.user.id,
-            'username': self.user.username,
-            'email': self.user.email,
-            'first_name': self.user.first_name,
-            'last_name': self.user.last_name,
-            'university': self.user.university,
-            'faculty': self.user.faculty,
-            'phone': self.user.phone,
-            'role': self.user.role,
-            'free_ads_remaining': self.user.free_ads_remaining,
-            'active_package': self.user.active_package.id if self.user.active_package else None,
-            'package_expiry': self.user.package_expiry.isoformat() if self.user.package_expiry else None,
-        }
         return data
 
 
