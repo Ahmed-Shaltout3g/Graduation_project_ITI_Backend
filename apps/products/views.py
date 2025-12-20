@@ -1,6 +1,9 @@
 from rest_framework import viewsets, filters, permissions
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from django.db.models import Q
 
 from .models import Category, Product
 from .serializers import CategorySerializer, ProductSerializer
@@ -22,7 +25,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         'university': ['exact'],
         'faculty': ['exact'],
         'status': ['exact'],
-        'seller__id': ['exact'],  # دعم فلترة البائع
+        'seller__id': ['exact'],
     }
     search_fields = ['title', 'description']
     ordering_fields = ['price', 'created_at']
@@ -34,29 +37,57 @@ class ProductViewSet(viewsets.ModelViewSet):
             return [permissions.IsAuthenticated()]
         return [permissions.IsAuthenticated(), IsOwnerOrAdmin()]
 
+    def get_queryset(self):
+        qs = Product.objects.all().select_related('category', 'seller')
+        user = self.request.user
+
+        if self.action == 'list':
+            # Everyone sees active products
+            return qs.filter(status='active')
+
+        if self.action == 'retrieve':
+            # For retrieve, show active products to everyone, plus allow owners to see their own products regardless of status
+            if user.is_authenticated:
+                return qs.filter(Q(status='active') | Q(seller=user))
+            return qs.filter(status='active')
+
+        # For update/delete: user can only manage their own products
+        return qs.filter(seller=user).select_related('category')
+
     def perform_create(self, serializer):
         user = self.request.user
+        # Optional: limit regular users to 2 products
         if not user.is_staff:
             count = Product.objects.filter(seller=user).count()
             if count >= 2:
                 raise PermissionDenied("Regular users can only add up to 2 products.")
-        # Enforce default status for regular users: newly created products by non-staff
-        # must be inactive. Staff users may set status when creating.
-        if not user.is_staff:
-            # newly created products by non-staff go to 'pending' for admin approval
-            serializer.save(seller=user, status='pending')
-        else:
-            serializer.save(seller=user)
+
+        # Automatically set status to 'active' for all new products
+        serializer.save(seller=user, status='active')
 
     def perform_update(self, serializer):
-        # Prevent non-staff users from changing status to 'active'. Admin/staff can.
-        requested_status = None
-        try:
-            requested_status = self.request.data.get('status')
-        except Exception:
-            requested_status = None
+        user = self.request.user
+        instance = serializer.instance  # the product being updated
+        requested_status = self.request.data.get('status')
 
-        if requested_status == 'active' and not self.request.user.is_staff:
-            raise PermissionDenied('Only admin/staff can set product status to active.')
+        # If the user is staff, they can do anything
+        if user.is_staff:
+            serializer.save()
+            return
 
-        serializer.save()
+        # If the user is the owner
+        if instance.seller == user:
+            if requested_status == 'active':
+                serializer.save(status='pending')
+            else:
+                serializer.save()
+                return
+
+        raise PermissionDenied('You do not have permission to edit this product.')
+
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    def my_products(self, request):
+        # Return all products for the authenticated user, regardless of status (for dashboard)
+        qs = Product.objects.filter(seller=request.user).select_related('category')
+        serializer = self.get_serializer(qs, many=True)
+        return Response(serializer.data)
