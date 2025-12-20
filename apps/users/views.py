@@ -1,4 +1,6 @@
 from rest_framework import viewsets, permissions
+from rest_framework.decorators import action
+from rest_framework.response import Response
 from django.contrib.auth import get_user_model
 from .serializers import UserSerializer
 from apps.common.permissions import IsOwnerOrAdmin
@@ -63,4 +65,12 @@ class UserViewSet(viewsets.ModelViewSet):
             return [permissions.AllowAny()]
         elif self.action in ['retrieve', 'update', 'partial_update', 'destroy']:
             return [permissions.IsAuthenticated(), IsOwnerOrAdmin()]
+        elif self.action == 'me':
+            return [permissions.IsAuthenticated()]
         return [permissions.IsAuthenticated()]
+
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    def me(self, request):
+        """Get current user profile information for chatbot and other authenticated services."""
+        serializer = UserSerializer(request.user)
+        return Response(serializer.data)
