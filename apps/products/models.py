@@ -27,6 +27,7 @@ class Product(models.Model):
     seller = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     university = models.CharField(max_length=255, blank=True)
     faculty = models.CharField(max_length=255, blank=True)
+    governorate = models.CharField(max_length=255, blank=True, default='')
     is_featured = models.BooleanField(default=False)
     status = models.CharField(max_length=30, choices=STATUS_CHOICES, default='pending')
     created_at = models.DateTimeField(auto_now_add=True)

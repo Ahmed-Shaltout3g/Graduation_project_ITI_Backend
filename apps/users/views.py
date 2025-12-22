@@ -1,4 +1,6 @@
 from rest_framework import viewsets, permissions
+from rest_framework.decorators import action
+from rest_framework.response import Response
 from django.contrib.auth import get_user_model
 from .serializers import UserSerializer
 from apps.common.permissions import IsOwnerOrAdmin
@@ -23,6 +25,21 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         data = super().validate(attrs)
         # Include role in the response payload for convenience (admin/user)
         data['role'] = 'admin' if (self.user.is_superuser or self.user.is_staff) else 'user'
+        # Include user data
+        data['user'] = {
+            'id': self.user.id,
+            'username': self.user.username,
+            'email': self.user.email,
+            'first_name': self.user.first_name,
+            'last_name': self.user.last_name,
+            'university': self.user.university,
+            'faculty': self.user.faculty,
+            'phone': self.user.phone,
+            'role': self.user.role,
+            'free_ads_remaining': self.user.free_ads_remaining,
+            'active_package': self.user.active_package.id if self.user.active_package else None,
+            'package_expiry': self.user.package_expiry.isoformat() if self.user.package_expiry else None,
+        }
         return data
 
 
@@ -48,4 +65,12 @@ class UserViewSet(viewsets.ModelViewSet):
             return [permissions.AllowAny()]
         elif self.action in ['retrieve', 'update', 'partial_update', 'destroy']:
             return [permissions.IsAuthenticated(), IsOwnerOrAdmin()]
+        elif self.action == 'me':
+            return [permissions.IsAuthenticated()]
         return [permissions.IsAuthenticated()]
+
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    def me(self, request):
+        """Get current user profile information for chatbot and other authenticated services."""
+        serializer = UserSerializer(request.user)
+        return Response(serializer.data)

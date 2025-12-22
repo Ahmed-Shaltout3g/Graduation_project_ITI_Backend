@@ -28,7 +28,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
 
     # JWT
-    path('api/token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
+    # path('api/token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),  # Moved to auth
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
     # Apps
@@ -37,6 +37,7 @@ urlpatterns = [
     path('api/', include('apps.payments.urls')),
     path('api/', include('apps.reviews.urls')),
     path('api/', include('apps.chats.urls')),
+    path('api/', include('apps.notifications.urls')),
     path('api/', include('apps.reports.urls')),
     path("api/", include("apps.chatbot.urls")),
     # Swagger
